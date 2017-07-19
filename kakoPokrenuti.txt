@@ -1,0 +1,29 @@
+1) 
+	Spojiti dva raèunala u istu mrežu i osigurati da raèunalo A može pingat raèunalo B na IP adresi IP_B
+		- dovoljno je spojit ih peer to peer (ethernet ili preko wifija-ad hoc) i u firewallu dopustiti pristup portu
+
+2)
+	B raèunalo mora moæi pokrenuti python3
+		dodatno, pokrenuti naredbu u cmd.exe: 
+			'pip install git+https://github.com/dpallot/simple-websocket-server.git' 
+		odakle se instalira websoket za server
+		i naredbu 
+			'pip install six'
+		kojom se instalira jednostavan server
+
+3)
+	index.html otvoriti s ureðivaæem teksta i izmijeniti liniju 31: 
+		var webSocketLink = "ws://localhost:8001/";
+	u
+		var webSocketLink = "ws://<IP_B>:8001/";
+	gdje je <IP_B> IP adresa raèunala B
+
+4)
+	pokrenuti server komandom u cmd.exe  
+		"python posluzitelj.py"
+	pokrenuti server za websocket u cmd.exe
+		"python komunikacija.py"
+		
+5) U pregledniku na oba raèunala upisati <IP_B>:8000 
+
+6) Igraj!

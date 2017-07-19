@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Igrajmo Zmiju!</title>
+</head>
+<body>
+	<h1>Zaigrajmo Zmiju!</h1>
+	<canvas id="canvas" width="800" height="450"></canvas>
+</body>
+
+<style>
+	body {
+		background-color: lightblue;
+	}
+	
+	h1 {
+		text-align: center;
+		font-style: italic;
+	}
+	
+	canvas {
+		margin: auto;
+		display: block;
+	}
+</style>
+
+<script>
+window.onload = initWindow;
+
+function initWindow() {
+	var webSocketLink = "ws://localhost:8001/";
+
+	// spremimo podatke o canvasu u varijable
+	var canvas = document.getElementById("canvas");
+	var kontekst = canvas.getContext("2d");
+	
+	// spremimo širinu i visinu canvasa
+	var sirina = canvas.clientWidth;
+	var visina = canvas.clientHeight;
+	
+	// podaci o stanici
+	var velicinaStanice = 10;
+		
+	// podaci o igracevoj zmiji
+	var zmija; // polje elemenata oblika {x, y}. Glava je zadnji element u polju
+	var smijer; // smijer u kojem je okrenuta zmija 
+	var sljedeci_smjer; // smijer u kojem æe se pomaknuti zmija sljedeæi korak
+		
+	var protivnikZmija;
+	
+	// varijabla za poziciju hrane
+	var hrana;
+	
+	// varijabla za bodove
+	var bodovi;
+	
+	// timer koji æe svakih 'period' milisekundi napraviti potez
+	var glavna_petlja;
+	var period = 150;
+	
+	// grupiramo instrukcije za zapoèinjanje igre u funkciju. Skup tih instrukcija pozivamo naredbom zapocniIgru()
+	function zapocniIgru() {
+		// inicijalne vrijednosti
+		sljedeci_smjer = "desno";
+		smijer = "desno";
+		bodovi = 0;
+		
+		// stvara zmiju na inicijalnu poziciju
+		stvoriZmiju();
+		// stvara hranu na sluèajnu poziciju
+		stvoriHranu(); 
+		
+		// timer, ako veæ postoji prvo ga izbriši, te za svakih 'period' milisekundi odigraj potez (odigrajPotez je funckija)
+		if(glavna_petlja !== undefined) clearInterval(glavna_petlja);
+		glavna_petlja = setInterval(odigrajPotez, period);
+	}
+		
+	// stvara zmiju u gornjem lijevom kutu okrenutu horizontalno prema desno
+	function stvoriZmiju() {
+		var duljina = 5; // inicjalna duljina zmije
+		zmija = []; 
+		for(var i = 0; i < duljina; i++) {
+			zmija.push({x: i, y:0});
+		}
+	}
+	
+	// stvara hranu na sluèajnu poziciju
+	var stvoriHranu = function() {
+		hrana = {
+			x: Math.round(Math.random()*(sirina-velicinaStanice)/velicinaStanice), 
+			y: Math.round(Math.random()*(visina-velicinaStanice)/velicinaStanice), 
+		};
+	}
+	
+	// funkcija koja obraðuje poruke od drugog igraæa
+	function onMessage(evt) {	
+		// podaci su oblika '[ID vlasnika] [x1],[y2],[x2],[y2],[x3],...,[xn],[yn]' ili '[ID vlasnika] kraj'
+		var podaci = evt.data.split(" ");
+		var vlasnik = podaci[0];
+		
+		// ako je protivnik umro poslat æe poruku s 'kraj'-em
+		if(podaci[1] == "kraj") { 
+			//alert("Vi ste pobijedili");
+			//location.reload();
+			
+			protivnikZmija = undefined;
+		}
+		
+		var podaciZmije = podaci[1].split(",");
+		
+		protivnikZmija = [];
+		for(var i = 0; i < podaciZmije.length-1; i = i + 2) {
+			protivnikZmija.push({x: podaciZmije[i], y:podaciZmije[i+1]});
+		}
+		
+		// dogodila se promijena, iscrtaj to na ekran
+		iscrtajKanvas();
+	}
+	
+	// funkcija koja se poziva na grešku u komunikaciji
+	function onError(evt) {
+		alert("websocket error");
+		websocket.close();
+	}
+	
+	// 
+	function zapocniKomunikaciju() {
+		websocket = new WebSocket(webSocketLink);
+		websocket.onmessage = function(evt) { onMessage(evt) };
+		websocket.onerror = function(evt) { onError(evt) };
+	}
+	
+	zapocniKomunikaciju();
+	zapocniIgru();
+	
+	// funkcija vraæa 'true' ako je uspijela pomaknuti zmiju, inaæe 'false'
+	function pomakniZmiju() {
+		var duljinaZmije = zmija.length;
+		
+		// prvo cemo postaviti novu stanicu zmije tamo gdje se glava nalazi potom je pomaknuti u smijer
+		var noviX = zmija[zmija.length-1].x; 
+		var noviY = zmija[zmija.length-1].y;
+				
+		smijer = sljedeci_smjer;				
+				
+		if(smijer == "desno") noviX = noviX+1;
+		else if(smijer == "lijevo") noviX = noviX-1;
+		else if(smijer == "gore") noviY = noviY-1;
+		else if(smijer == "dolje") noviY = noviY+1;
+		
+		// treba provjeriti hoæe li nova stanica preæi granicu ili udariti u sebe ili protivniæku zmiju
+		var lijeviRub = -1;
+		var gornjRub = -1;
+		var desniRub = sirina/velicinaStanice;
+		var donjiRub = visina/velicinaStanice;
+		
+		if(noviX == lijeviRub || noviX == desniRub || noviY == gornjRub || noviY == donjiRub || 
+			provjeriSudar(noviX, noviY, zmija) || provjeriSudar(noviX, noviY, protivnikZmija)) {
+			
+			// ako se dogodio sudar, pošalji informaciju protivniku, ispiši razlog te ponovno pokreni igru
+			var razlog = "razlog: ";
+			if(noviX == lijeviRub || noviX == desniRub || noviY == gornjRub || noviY == donjiRub) razlog += "udar u rub";
+			if(provjeriSudar(noviX, noviY, zmija)) razlog += "udar u sebe";
+			if(provjeriSudar(noviX, noviY, protivnikZmija)) razlog += "udar u protivnika"
+			
+			websocket.send("kraj");
+			alert("Vi ste izgubili " + razlog);
+			return false;
+		} else {
+			// ako se može staviti nova stanica, provjeri je li pojela hranu te završi potez
+			var novaStanica = {x: noviX, y: noviY};
+		
+			if(noviX == hrana.x && noviY == hrana.y) {
+				bodovi = bodovi+1;
+				stvoriHranu();
+			}
+			else {
+				// ukloni rep
+				zmija.shift();				
+			}
+			
+			// dodaj novu glavu
+			zmija.push(novaStanica);
+			
+			return true;
+		}
+	}
+	
+	// funckija koja uèini jedan potez zmije
+	function odigrajPotez() {
+		var uspjesnoPomaknuta = pomakniZmiju();
+		
+		if(uspjesnoPomaknuta) {
+			// pošalji poruku 
+			var poruka = "";
+			var razmak = "";
+			
+			for(var i = 0; i < zmija.length; i = i + 1) {
+				poruka = poruka + razmak + zmija[i].x + "," + zmija[i].y;
+				razmak = ",";
+			}
+			websocket.send(poruka);
+			iscrtajKanvas();
+		}
+		else {
+			// kad zmija udari u nešto (nije uspjesno pomaknuta zmija) ponovno poèni igrat
+			zapocniIgru();
+		}
+	}
+	
+	// iscrtaje kanvas
+	function iscrtajKanvas() {
+		kontekst.fillStyle = "white";
+		kontekst.fillRect(0, 0, sirina, visina);
+		kontekst.strokeStyle = "black";
+		kontekst.strokeRect(0, 0, sirina, visina);
+							
+		iscrtajZmiju(zmija, "blue");		
+		iscrtajZmiju(protivnikZmija, "red");		
+		iscrtajStanicu(hrana.x, hrana.y, "green");
+		iscrtajBodove(bodovi);
+	}
+	
+	// iscrtava bodove
+	function iscrtajBodove(bodovi) {
+		var tekst_bodova = "Bodovi: " + bodovi;
+		kontekst.fillStyle = "black";
+		kontekst.fillText(tekst_bodova, 5, visina-5);
+	}
+	
+	// iscrtava stanicu
+	function iscrtajStanicu(x, y, boja) {
+		kontekst.fillStyle = boja;
+		kontekst.fillRect(x*velicinaStanice, y*velicinaStanice, velicinaStanice, velicinaStanice);
+		kontekst.strokeStyle = "white";
+		kontekst.strokeRect(x*velicinaStanice, y*velicinaStanice, velicinaStanice, velicinaStanice);
+	}
+	
+	// iscrtava zmiju
+	function iscrtajZmiju(zmija, boja) {
+		if(zmija != undefined) {
+			for(var i = 0; i < zmija.length; i++) {
+				var c = zmija[i];
+				iscrtajStanicu(c.x, c.y, boja);
+			}
+		}
+	}
+	
+	// funkcija koja provjerava jeli novi x, y se nalazi unutar polja (odnosno je li nova glava udarila veæ u zmiju)
+	function provjeriSudar(x, y, polje) {
+		var dodirujuSe = false;
+		if(polje != undefined) {
+			for(var i = 0; i < polje.length; i++) {
+				if(polje[i].x == x && polje[i].y == y)
+				 dodirujuSe = true;
+			}
+		}
+				
+		return dodirujuSe;
+	}
+		
+	document.onkeydown = provjeriTipku;
+	// funkcija koja registrira tipke
+	function provjeriTipku(e) {
+		var tipka = e.which;
+		
+		if(tipka == "37" && smijer != "desno") sljedeci_smjer = "lijevo";
+		else if(tipka == "38" && smijer != "dolje") sljedeci_smjer = "gore";
+		else if(tipka == "39" && smijer != "lijevo") sljedeci_smjer = "desno";
+		else if(tipka == "40" && smijer != "gore") sljedeci_smjer = "dolje";
+	}
+}
+</script>
+
+</html> 
+
