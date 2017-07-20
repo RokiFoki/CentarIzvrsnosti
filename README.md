@@ -34,7 +34,7 @@ Poslužitelj za komunikaciju s drugim klijentima u stvarnom vremenu napisan je u
 
 ### Preduvjeti za pokretanje
 Da bi se aplikacija mogla pokrenuti potrebno je imati instaliran `Python 3.*`. 
-Dodatno potrebno je instalirati bibilioteku za `websocket` za `python` komandom:
+Dodatno, potrebno je instalirati bibilioteku za `websocket` za `python` komandom:
 ```
 pip install git+https://github.com/dpallot/simple-websocket-server.git
 ```
