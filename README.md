@@ -46,21 +46,21 @@ pip install six
     - it's enough to connect them P2P (_peer to peer_) with ethernet cable or over WiFi using ad hoc method and allow in `firewall` enable outgoing port.
 
 2.On machine B open `index.html` with text editor and change line 31: 
-	 ```
-   var webSocketLink = "ws://localhost:8001/";
-   ```
-	 into
-   ```
-   var webSocketLink = "ws://<IP_B>:8001/";
-   ```
-	where <IP_B> is IP address of machine B which can be retreived with command `ipconfig` or `ifconfig`.
+ ```
+var webSocketLink = "ws://localhost:8001/";
+```
+into
+```
+var webSocketLink = "ws://<IP_B>:8001/";
+```
+where <IP_B> is IP address of machine B which can be retreived with command `ipconfig` or `ifconfig`.
 3. On machine B start the server with following command in cmd.exe:  
-	  ```
-    python posluzitelj.py
-    ```
-	Start server for real-time communication in cmd.exe with following command:
-    ```
-    python komunikacija.py
-    ```
+```
+python posluzitelj.py
+```
+Start server for real-time communication in cmd.exe with following command:
+```
+python komunikacija.py
+```
 4. Open following address in both browsers: `<IP_B>:8000`
 5. Play the video game with your friend! :video_game: :smile:
